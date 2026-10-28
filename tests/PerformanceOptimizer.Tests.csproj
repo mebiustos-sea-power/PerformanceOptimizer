@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFrameworks>net10.0;netstandard2.1</TargetFrameworks>
+    <OutputType>Exe</OutputType>
+    <AssemblyName>PerformanceOptimizer.Tests</AssemblyName>
+    <FindDependenciesOfExternallyResolvedReferences>false</FindDependenciesOfExternallyResolvedReferences>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\src\PerformanceOptimizer.csproj" />
+    <Reference Include="0Harmony" HintPath="$(SeaPowerDir)\BepInEx\core\0Harmony.dll" Private="false" ExternallyResolved="true" />
+    <Reference Include="Assets" HintPath="$(SeaPowerDir)\Sea Power_Data\Managed\Assets.dll" Private="false" ExternallyResolved="true" />
+    <Reference Include="UnityEngine.CoreModule" HintPath="$(SeaPowerDir)\Sea Power_Data\Managed\UnityEngine.CoreModule.dll" Private="false" ExternallyResolved="true" />
+  </ItemGroup>
+</Project>
