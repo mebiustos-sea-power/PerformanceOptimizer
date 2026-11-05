@@ -36,12 +36,14 @@ internal static class Program
         SettingsTests.Run();
         ReadbackTests.Run();
         RoutingTests.Run();
+        SimulationTests.Run();
         if (game)
         {
             if (Type.GetType("Mono.Runtime") == null)
                 throw new PlatformNotSupportedException("Use tools/test-mono.ps1 for the installed Harmony runtime.");
             ReadbackTests.InstallOnGameMono();
             RoutingTests.InstallOnMono();
+            SimulationTests.InstallOnMono();
         }
     }
 

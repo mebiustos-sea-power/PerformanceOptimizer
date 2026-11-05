@@ -2,6 +2,20 @@
 
 An Anchor Chain mod for Sea Power that reduces redundant work while preserving graphics settings and native simulation timing.
 
+## Simulation allocation optimizations (0.3.0)
+
+Five independent optimizations are enabled with the mod, without additional settings:
+
+- **SonarScratchReuse** reuses per-sonar temporary builders, a membership set and a dictionary snapshot in the improved sonar model. Native worker-owned arrays, snapshot copies, tasks, completion waits and result collection are retained.
+- **AiContactScratchReuse** reuses the temporary contact-membership set for each AI instance. Contact information is cleared after each decision; no decision result is cached between updates.
+- **FormationStationLookup** uses a single station lookup within each duplicated expression. It does not cache stations across calls or frames.
+- **WeaponLookupAllocation** removes an empty list that is immediately overwritten by the native dictionary lookup. Missing-key behavior and optional mutable copies are retained.
+- **SensorChannelEnumeration** avoids boxed enumerators in the native jammer/laser channel totals. The original list order, conditions and reactive-property writes remain; list-version checks retain mutation errors.
+
+Scratch storage is isolated by owner and invocation, including reentrant calls. Lists/sets are cleared on normal return and exceptions; retained capacity is released with the owner or optimization. This trades retained capacity for less repeated managed allocation. Judgment intervals, contact order, formulas, random draws and simulation scheduling are unchanged. The verified game assembly is required, and pre-existing patches to these target methods are rejected with a logged error.
+
+These changes target redundant CPU work and temporary allocations. They do not establish that garbage collection causes a particular scenario's stuttering or guarantee smoother play.
+
 ## Optimizations
 
 Version 0.2.0 adds two image-effect routing changes. They are applied together when Performance Optimizer is enabled; there are no separate settings for these two changes.
@@ -45,6 +59,14 @@ Run `powershell -NoProfile -File build.ps1 -Test`. Outputs are written under thi
 Tests execute the game's original and rewritten readback IL with managed replacements for GPU/engine boundaries, including the actual request and completion control flow. They compare request timing, delivered values, errors and independent grids, and verify that redundant conversions are removed. Routing tests exercise control updates, the first switching frame, GUI callbacks, native lifecycle, history and restoration. An additional separate process uses the game's bundled Mono to install and remove the actual ocean Harmony patch, test installation isolation and verify cached open-controller delegates obey Harmony guards. These tests do not initialize Unity rendering, attach to a running game, or prove live GPU savings.
 
 The isolated Mono installation check may print unresolved Unity internal-call diagnostics for SystemInfo while JIT-compiling the real target. This test host has no Unity player to register those calls. The target is installed and removed but never executed against native graphics; GPU boundaries are simulated in the behavioral tests. These diagnostics alone do not indicate a damaged game installation.
+
+## Simulation verification
+
+The original and transformed game IL is compared at managed boundaries for weapon lookup, formation following and sensor-channel totals. Tests cover ordering, duplicates, mutable copies, missing keys, on/off and occupied channels, property writes, and same-count list mutations. Production scratch helpers are exercised with growing/shrinking/empty inputs, independent snapshots, separate owners, nested calls, exceptions and removal during an active invocation. Warmed scratch-list/set updates allocate zero managed bytes in the .NET test host; this is not a measurement of game-wide allocation or GC pauses.
+
+The separate game-Mono process also executes these comparisons and installs the production scratch prefix/finalizer on managed fixtures, including exception recovery and the game's private sonar snapshot type. Preparing detours for full native simulation methods can initialize Unity-dependent globals, which a standalone host cannot supply. Live Unity verification is required in addition to these offline checks.
+
+On 2026-11-05, the 0.3.0 candidate loaded all five new optimizations and the three existing ones in two separate normal launches of Sea Power 0.8.7-261021. B6 contained 26 units, 16 sonars and nine formation memberships. Query checks matched for 11 units with weapon mappings, nine formation memberships and 22 living units' channel totals, before and after normal simulation. AI contact evaluation and both passive/active improved-sonar scheduling were observed over approximately six minutes of sampled normal progress; no exceptions were recorded in the monitored methods. Restarting and loading B6 again succeeded. Same-process return-to-menu/reload, explicit formation reassignment and destruction stress tests are not covered. This was a bounded functional check, not an ON/OFF performance or GC-stutter comparison.
 
 ## Rendering verification
 

@@ -32,7 +32,12 @@ public sealed class Plugin : IAnchorChainMod
             OptimizationInstaller.Install(new (IOptimization Optimization, bool Enabled)[] {
                 (ocean, settings.IsEnabled(ocean.Id)),
                 (new PipOutputRouting(), true),
-                (new OpticalEffectRouting(), true)
+                (new OpticalEffectRouting(), true),
+                (new SonarScratchReuse(), true),
+                (new AiContactScratchReuse(), true),
+                (new FormationStationLookup(), true),
+                (new WeaponLookupAllocation(), true),
+                (new SensorChannelEnumeration(), true)
             });
             Application.quitting += OptimizationInstaller.Shutdown;
         }
