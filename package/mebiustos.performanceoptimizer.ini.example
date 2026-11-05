@@ -1,0 +1,14 @@
+; Copy this file to BepInEx/config/mebiustos.performanceoptimizer.ini in the game directory.
+; All optimizations are enabled by default. Set an item to false to disable it.
+; Settings are read only at startup. Changes require a game restart.
+[Optimizations]
+; Rendering and GPU work
+OceanReadbackDispatch=true
+PipOutputRouting=true
+OpticalEffectRouting=true
+; Simulation allocations and lookups
+SonarScratchReuse=true
+AiContactScratchReuse=true
+FormationStationLookup=true
+WeaponLookupAllocation=true
+SensorChannelEnumeration=true

@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Linq;
 using AnchorChain;
+using BepInEx;
 using PerformanceOptimizer.Optimizations;
 using UnityEngine;
 
@@ -26,24 +27,35 @@ public sealed class Plugin : IAnchorChainMod
             if (!ModActivation.IsEnabled(game.GetType("SeaPower.FileManager", true)!, package))
             { ModLog.Info("Disabled in the mod manager; no optimizations installed."); return; }
 
-            var ocean = new OceanReadbackDispatch();
-            var settings = OptimizationSettings.Load(Path.Combine(package, "optimizations.ini"), new[] { ocean.Id });
-            foreach (string warning in settings.Warnings) ModLog.Warning(warning);
-            OptimizationInstaller.Install(new (IOptimization Optimization, bool Enabled)[] {
-                (ocean, settings.IsEnabled(ocean.Id)),
-                (new PipOutputRouting(), true),
-                (new OpticalEffectRouting(), true),
-                (new SonarScratchReuse(), true),
-                (new AiContactScratchReuse(), true),
-                (new FormationStationLookup(), true),
-                (new WeaponLookupAllocation(), true),
-                (new SensorChannelEnumeration(), true)
-            });
+            string configDirectory = Paths.ConfigPath;
+            string settingsPath = Path.Combine(configDirectory, OptimizationSettings.FileName);
+            ModLog.Info("Configuration: " + settingsPath);
+            if (File.Exists(Path.Combine(package, "optimizations.ini")))
+                ModLog.Warning("The legacy optimizations.ini beside the mod DLL is no longer read. Move its settings to " + settingsPath + ".");
+            OptimizationInstaller.Install(LoadOptimizations(configDirectory));
             Application.quitting += OptimizationInstaller.Shutdown;
         }
         catch (Exception error)
         {
             ModLog.Error("Initialization failed; no further optimizations will be installed", error);
         }
+    }
+
+    internal static (IOptimization Optimization, bool Enabled)[] LoadOptimizations(string configDirectory)
+    {
+        IOptimization[] optimizations = {
+            new OceanReadbackDispatch(),
+            new PipOutputRouting(),
+            new OpticalEffectRouting(),
+            new SonarScratchReuse(),
+            new AiContactScratchReuse(),
+            new FormationStationLookup(),
+            new WeaponLookupAllocation(),
+            new SensorChannelEnumeration()
+        };
+        var settings = OptimizationSettings.Load(Path.Combine(configDirectory, OptimizationSettings.FileName),
+            optimizations.Select(optimization => optimization.Id));
+        foreach (string warning in settings.Warnings) ModLog.Warning(warning);
+        return optimizations.Select(optimization => (optimization, settings.IsEnabled(optimization.Id))).ToArray();
     }
 }

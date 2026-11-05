@@ -6,6 +6,7 @@ namespace PerformanceOptimizer;
 
 internal sealed class OptimizationSettings
 {
+    internal const string FileName = ModInfo.Id + ".ini";
     private readonly Dictionary<string, bool> enabled;
     internal IReadOnlyList<string> Warnings { get; }
     private OptimizationSettings(Dictionary<string, bool> values, IReadOnlyList<string>? warnings = null)

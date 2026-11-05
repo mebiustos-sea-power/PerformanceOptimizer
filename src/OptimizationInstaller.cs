@@ -23,7 +23,7 @@ internal static class OptimizationInstaller
     internal static void Install(IOptimization optimization, bool enabled)
     {
         if (!enabled)
-        { ModLog.Info(optimization.Id + ": disabled in optimizations.ini."); return; }
+        { ModLog.Info(optimization.Id + ": disabled in " + OptimizationSettings.FileName + "."); return; }
         try
         {
             var patches = new Harmony(ModInfo.Id + "." + optimization.Id);

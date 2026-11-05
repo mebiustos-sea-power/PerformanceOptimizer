@@ -1,5 +1,0 @@
-; Copy to optimizations.ini in this mod's installed folder.
-; Legacy ocean setting; the two image-effect routing changes follow the mod checkbox.
-; Changes require a game restart.
-[Optimizations]
-OceanReadbackDispatch=true

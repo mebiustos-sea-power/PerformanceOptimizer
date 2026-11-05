@@ -4,7 +4,7 @@ An Anchor Chain mod for Sea Power that reduces redundant work while preserving g
 
 ## Simulation allocation optimizations (0.3.0)
 
-Five independent optimizations are enabled with the mod, without additional settings:
+Five independent optimizations are enabled by default and can each be disabled in the configuration file:
 
 - **SonarScratchReuse** reuses per-sonar temporary builders, a membership set and a dictionary snapshot in the improved sonar model. Native worker-owned arrays, snapshot copies, tasks, completion waits and result collection are retained.
 - **AiContactScratchReuse** reuses the temporary contact-membership set for each AI instance. Contact information is cleared after each decision; no decision result is cached between updates.
@@ -18,7 +18,7 @@ These changes target redundant CPU work and temporary allocations. They do not e
 
 ## Optimizations
 
-Version 0.2.0 adds two image-effect routing changes. They are applied together when Performance Optimizer is enabled; there are no separate settings for these two changes.
+Version 0.2.0 introduced two image-effect routing changes alongside the ocean optimization. All three are enabled by default and can now be disabled independently.
 
 - **PipOutputRouting** removes the PiP forwarding stage from cameras that are not currently providing a requested PiP image. The native PiP image, source-camera selection, downsampling and viewport remain responsible for the displayed result.
 - **OpticalEffectRouting** retains the native optical renderer in its original position, but includes it only while a valid image effect is active. A separate driver invokes the original input, late-update and GUI methods, preserving mode changes, transitions and temporal history while the renderer is idle. Internal renderer switches do not invoke semantic enable/disable resets; actual GameObject lifecycle is forwarded when needed.
@@ -34,14 +34,31 @@ The build never deploys files to the game or starts/attaches to a game process. 
 
 ## Configuration
 
-The new image-effect routing is enabled with the mod. The existing ocean setting remains available. To disable the ocean item, copy `optimizations.ini.example` to `optimizations.ini` beside the installed DLL and use:
+All eight optimizations can be disabled independently. The settings file is stored outside the installed mod and Workshop folders:
+
+```text
+BepInEx/config/mebiustos.performanceoptimizer.ini
+```
+
+This path is relative to the game directory for a standard BepInEx installation; the mod uses BepInEx's configured `Paths.ConfigPath` and logs the full path at startup. Copy the included `mebiustos.performanceoptimizer.ini.example` there, removing `.example` from the name. The example lists every available setting:
 
 ```ini
 [Optimizations]
-OceanReadbackDispatch=false
+OceanReadbackDispatch=true
+PipOutputRouting=true
+OpticalEffectRouting=true
+SonarScratchReuse=true
+AiContactScratchReuse=true
+FormationStationLookup=true
+WeaponLookupAllocation=true
+SensorChannelEnumeration=true
 ```
 
-Restart the game after changes. The mod never rewrites this file. Unknown IDs and invalid Boolean values generate startup warnings and retain the existing/default setting. Malformed syntax or duplicate valid settings stop initialization with an error. Each optimization has its own Harmony owner; an installation failure is logged and its patches are rolled back while other optimizations can continue.
+Set any item to `false` to disable only that optimization. If the file is absent, all optimizations are enabled; omitted entries are also enabled. The file is not automatically created or overwritten. Settings are read only at startup to decide which patches to install, so changing them requires a game restart and adds no per-frame configuration checks. Disabling the mod in the game's mod manager still prevents all its optimizations from being installed.
+
+If you previously created `optimizations.ini` beside the mod DLL, move it to the new location and rename it to `mebiustos.performanceoptimizer.ini` to retain your settings. If the new file already exists, merge your old values into it. The old file is no longer read; a startup warning identifies the new path when an old file remains. Missing entries in an older file use the enabled default.
+
+Unknown IDs and invalid Boolean values generate startup warnings and retain the existing/default setting. Malformed syntax or duplicate valid settings stop initialization with an error. Each optimization has its own Harmony owner; an installation failure is logged and its patches are rolled back while other optimizations can continue.
 
 ## Build and tests
 
