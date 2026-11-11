@@ -11,9 +11,7 @@ internal static class NativeRenderContract
     {
         // Renderer gating depends on the complete native inactive branch and
         // lifecycle, not just a method signature. Re-audit these on game updates.
-        var supported = new Guid("45d05d04-62a4-4675-99dd-8be00c74e539");
-        if (typeof(FullscreenShaderToggleCycle).Module.ModuleVersionId != supported)
-            throw new NotSupportedException("The image-effect routing contract requires Sea Power 0.8.7-261021; this game assembly has not been verified.");
+        GameAssemblyCompatibility.RequireVerified(typeof(FullscreenShaderToggleCycle).Module.ModuleVersionId);
         foreach (MethodInfo method in methods)
         {
             var patches = Harmony.GetPatchInfo(method);

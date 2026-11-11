@@ -5,7 +5,6 @@ using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using HarmonyLib;
-using SeaPower;
 
 namespace PerformanceOptimizer.Simulation;
 
@@ -17,8 +16,7 @@ internal static class NativeSimulationContract
 
     internal static void Validate(params MethodInfo[] methods)
     {
-        if (typeof(ObjectBase).Module.ModuleVersionId != new Guid("45d05d04-62a4-4675-99dd-8be00c74e539"))
-            throw new NotSupportedException("Simulation allocation optimizations require the verified Sea Power 0.8.7-261021 assembly.");
+        GameAssemblyCompatibility.RequireVerified(GameAssemblyCompatibility.Current);
         foreach (var method in methods)
             if (Harmony.GetPatchInfo(method)?.Owners.Any() == true)
                 throw new InvalidOperationException("Another patch already owns the simulation method: " + method);

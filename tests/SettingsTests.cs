@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using PerformanceOptimizer;
+using PerformanceOptimizer.Optimizations;
 using static Program;
 
 internal static class SettingsTests
@@ -25,6 +26,9 @@ internal static class SettingsTests
         string legacy = Path.Combine(directory, "optimizations.ini");
         File.WriteAllText(legacy, "[Optimizations]\nOceanReadbackDispatch=false\n");
         var defaults = Plugin.LoadOptimizations(configDirectory);
+        bool nativeWeaponLookupOptimized = GameAssemblyCompatibility.Current == GameAssemblyCompatibility.SeaPower090;
+        Require(defaults.Any(entry => entry.Optimization is WeaponLookupAllocation) == !nativeWeaponLookupOptimized,
+            "The installation plan must skip the weapon lookup patch on builds with the native optimization.");
         Require(defaults.All(entry => entry.Enabled) && !Directory.Exists(configDirectory),
             "Absent shared configuration did not retain enabled defaults or created files.");
         Directory.CreateDirectory(configDirectory);

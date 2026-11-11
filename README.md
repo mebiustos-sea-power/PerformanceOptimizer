@@ -4,12 +4,12 @@ An Anchor Chain mod for Sea Power that reduces redundant work while preserving g
 
 ## Simulation allocation optimizations (0.3.0)
 
-Five independent optimizations are enabled by default and can each be disabled in the configuration file:
+The simulation optimizations are enabled by default wherever they apply. Each has a setting in the configuration file:
 
 - **SonarScratchReuse** reuses per-sonar temporary builders, a membership set and a dictionary snapshot in the improved sonar model. Native worker-owned arrays, snapshot copies, tasks, completion waits and result collection are retained.
 - **AiContactScratchReuse** reuses the temporary contact-membership set for each AI instance. Contact information is cleared after each decision; no decision result is cached between updates.
 - **FormationStationLookup** uses a single station lookup within each duplicated expression. It does not cache stations across calls or frames.
-- **WeaponLookupAllocation** removes an empty list that is immediately overwritten by the native dictionary lookup. Missing-key behavior and optional mutable copies are retained.
+- **WeaponLookupAllocation** removes an empty list that is immediately overwritten by the native dictionary lookup on Sea Power 0.8.7. Sea Power 0.9.0 already omits that allocation and uses its native lookup.
 - **SensorChannelEnumeration** avoids boxed enumerators in the native jammer/laser channel totals. The original list order, conditions and reactive-property writes remain; list-version checks retain mutation errors.
 
 Scratch storage is isolated by owner and invocation, including reentrant calls. Lists/sets are cleared on normal return and exceptions; retained capacity is released with the owner or optimization. This trades retained capacity for less repeated managed allocation. Judgment intervals, contact order, formulas, random draws and simulation scheduling are unchanged. The verified game assembly is required, and pre-existing patches to these target methods are rejected with a logged error.
@@ -24,7 +24,7 @@ Version 0.2.0 introduced two image-effect routing changes alongside the ocean op
 - **OpticalEffectRouting** retains the native optical renderer in its original position, but includes it only while a valid image effect is active. A separate driver invokes the original input, late-update and GUI methods, preserving mode changes, transitions and temporal history while the renderer is idle. Internal renderer switches do not invoke semantic enable/disable resets; actual GameObject lifecycle is forwarded when needed.
 - **OceanReadbackDispatch** skips the displacement texture-to-buffer conversion while that buffer has an outstanding request. Native request/collection/copy/clearing order is retained.
 
-Image-effect routing is verified against Sea Power 0.8.7-261021 and rejects an unverified game assembly or pre-existing patches to the callbacks it must own. Errors are logged, affected components are restored and only that optimization is removed. Graphics quality, depth/normal requirements, ocean detail, frame caps and simulation scheduling are unchanged. There is no promised GPU/power reduction; results depend on view, resolution and active effects.
+The compatibility checks for image-effect routing and simulation optimizations recognize Sea Power 0.8.7-261021 and 0.9.0-261111. They reject other game assemblies and pre-existing patches to the methods they must own. Errors are logged, affected components are restored and only that optimization is removed. Graphics quality, depth/normal requirements, ocean detail, frame caps and simulation scheduling are unchanged. There is no promised GPU/power reduction; results depend on view, resolution and active effects.
 
 ## Installation
 
@@ -34,7 +34,7 @@ The build never deploys files to the game or starts/attaches to a game process. 
 
 ## Configuration
 
-All eight optimizations can be disabled independently. The settings file is stored outside the installed mod and Workshop folders:
+Each applicable optimization can be disabled independently. The settings file is stored outside the installed mod and Workshop folders:
 
 ```text
 BepInEx/config/mebiustos.performanceoptimizer.ini
@@ -54,7 +54,7 @@ WeaponLookupAllocation=true
 SensorChannelEnumeration=true
 ```
 
-Set any item to `false` to disable only that optimization. If the file is absent, all optimizations are enabled; omitted entries are also enabled. The file is not automatically created or overwritten. Settings are read only at startup to decide which patches to install, so changing them requires a game restart and adds no per-frame configuration checks. Disabling the mod in the game's mod manager still prevents all its optimizations from being installed.
+Set any item to `false` to disable only that optimization. If the file or an entry is absent, the applicable optimization is enabled. Sea Power 0.9.0 accepts the existing `WeaponLookupAllocation` setting and uses its native lookup regardless of that value. The file is not automatically created or overwritten. Settings are read only at startup to decide which patches to install, so changing them requires a game restart and adds no per-frame configuration checks. Disabling the mod in the game's mod manager still prevents all its optimizations from being installed.
 
 If you previously created `optimizations.ini` beside the mod DLL, move it to the new location and rename it to `mebiustos.performanceoptimizer.ini` to retain your settings. If the new file already exists, merge your old values into it. The old file is no longer read; a startup warning identifies the new path when an old file remains. Missing entries in an older file use the enabled default.
 

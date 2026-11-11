@@ -4,6 +4,7 @@ using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using HarmonyLib;
+using PerformanceOptimizer;
 using PerformanceOptimizer.Optimizations;
 using PerformanceOptimizer.Simulation;
 using static NativeSimulationFixture;
@@ -20,25 +21,35 @@ internal static class SimulationTests
     private static void WeaponLookup()
     {
         var fixture = new NativeSimulationFixture();
-        var native = fixture.Compile<Func<Owner, string, bool, List<Weapon>?>>(WeaponLookupAllocation.Target);
-        var changed = fixture.Compile<Func<Owner, string, bool, List<Weapon>?>>(WeaponLookupAllocation.Target,
-            (code, _) => WeaponLookupAllocation.Transpile(code));
-        var unit = new Owner(); var source = new List<Weapon> { new(1), new(2), new(1) };
-        unit._ammunitionToWeaponSystemsDictionary.Add("ammo", source);
-        foreach (bool copy in new[] { false, true })
+        var lookups = new List<Func<Owner, string, bool, List<Weapon>?>> {
+            fixture.Compile<Func<Owner, string, bool, List<Weapon>?>>(WeaponLookupAllocation.Target)
+        };
+        if (GameAssemblyCompatibility.Current != GameAssemblyCompatibility.SeaPower090)
+            lookups.Add(fixture.Compile<Func<Owner, string, bool, List<Weapon>?>>(WeaponLookupAllocation.Target,
+                (code, _) => WeaponLookupAllocation.Transpile(code)));
+
+        foreach (var lookup in lookups)
         {
-            var a = native(unit, "ammo", copy)!; var b = changed(unit, "ammo", copy)!;
-            Require(a.SequenceEqual(b) && ReferenceEquals(a, source) == !copy && ReferenceEquals(b, source) == !copy,
-                "Weapon lookup changed item order, duplicates or copy/alias semantics.");
-            if (copy) { b.Clear(); Require(source.Count == 3, "A mutable result changed the unit's registered weapons."); }
-            Require(native(unit, "missing", copy) == null && changed(unit, "missing", copy) == null, "Missing ammo behavior changed.");
-            Throws<ArgumentNullException>(() => native(unit, null!, copy));
-            Throws<ArgumentNullException>(() => changed(unit, null!, copy));
+            var unit = new Owner();
+            var source = new List<Weapon> { new(1), new(2), new(1) };
+            unit._ammunitionToWeaponSystemsDictionary.Add("ammo", source);
+            foreach (bool copy in new[] { false, true })
+            {
+                var result = lookup(unit, "ammo", copy)!;
+                Require(result.SequenceEqual(source) && ReferenceEquals(result, source) == !copy,
+                    "Weapon lookup changed item order, duplicates or copy/alias semantics.");
+                if (copy)
+                {
+                    result.Clear();
+                    Require(source.Count == 3, "A mutable result changed the unit's registered weapons.");
+                }
+                Require(lookup(unit, "missing", copy) == null, "Missing ammo behavior changed.");
+                Throws<ArgumentNullException>(() => lookup(unit, null!, copy));
+            }
+            unit._ammunitionToWeaponSystemsDictionary = null!;
+            Throws<NullReferenceException>(() => lookup(unit, "ammo", false));
         }
-        unit._ammunitionToWeaponSystemsDictionary = null!;
-        Throws<NullReferenceException>(() => native(unit, "ammo", false));
-        Throws<NullReferenceException>(() => changed(unit, "ammo", false));
-        Console.WriteLine("PASS native weapon lookup IL: order, duplicates, mutable copies, missing entries and exceptions match");
+        Console.WriteLine("PASS weapon lookup IL: order, duplicates, mutable copies, missing entries and exceptions");
     }
 
     private static void FormationLookup()
@@ -59,7 +70,9 @@ internal static class SimulationTests
         }
         unit.Formation = null;
         Require(!native(unit) && !changed(unit), "Leaving a formation retained a cached station.");
-        Console.WriteLine("PASS native formation getter IL: assignment/removal/independent changes match; assigned lookups 2 -> 1");
+        var update = new DynamicMethod("ValidateFormationUpdate", typeof(void), Type.EmptyTypes).GetILGenerator();
+        FormationStationLookup.Transpile(InstructionReader.Read(FormationStationLookup.Update), update).ToList();
+        Console.WriteLine("PASS native formation IL: update layout accepted, getter states match and assigned lookups 2 -> 1");
     }
 
     private static Owner Sensors()
@@ -112,7 +125,12 @@ internal static class SimulationTests
 
     private static void RejectChangedLayouts()
     {
-        var changed = InstructionReader.Read(WeaponLookupAllocation.Target); changed[0].opcode = OpCodes.Ldnull; changed[0].operand = null;
+        var changed = InstructionReader.Read(WeaponLookupAllocation.Target);
+        if (GameAssemblyCompatibility.Current != GameAssemblyCompatibility.SeaPower090)
+        {
+            changed[0].opcode = OpCodes.Ldnull;
+            changed[0].operand = null;
+        }
         Throws<InvalidOperationException>(() => WeaponLookupAllocation.Transpile(changed).ToList());
         var ai = InstructionReader.Read(AiContactScratchReuse.Target);
         ai.RemoveAll(i => i.opcode == OpCodes.Newobj && i.operand is ConstructorInfo c && c.DeclaringType!.IsGenericType &&
