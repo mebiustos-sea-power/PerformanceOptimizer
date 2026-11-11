@@ -1,5 +1,5 @@
 ; Copy this file to BepInEx/config/mebiustos.performanceoptimizer.ini in the game directory.
-; Applicable optimizations are enabled by default. Set an item to false to disable it.
+; Optimizations are enabled by default. Set an item to false to disable it.
 ; Settings are read only at startup. Changes require a game restart.
 [Optimizations]
 ; Rendering and GPU work
@@ -10,6 +10,4 @@ OpticalEffectRouting=true
 SonarScratchReuse=true
 AiContactScratchReuse=true
 FormationStationLookup=true
-; Applies to Sea Power 0.8.7. Sea Power 0.9.0 already omits this allocation.
-WeaponLookupAllocation=true
 SensorChannelEnumeration=true

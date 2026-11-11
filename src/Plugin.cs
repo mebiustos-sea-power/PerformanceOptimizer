@@ -50,17 +50,11 @@ public sealed class Plugin : IAnchorChainMod
             new SonarScratchReuse(),
             new AiContactScratchReuse(),
             new FormationStationLookup(),
-            new WeaponLookupAllocation(),
             new SensorChannelEnumeration()
         };
         var settings = OptimizationSettings.Load(Path.Combine(configDirectory, OptimizationSettings.FileName),
             optimizations.Select(optimization => optimization.Id));
         foreach (string warning in settings.Warnings) ModLog.Warning(warning);
-        bool nativeWeaponLookupOptimized = GameAssemblyCompatibility.Current == GameAssemblyCompatibility.SeaPower090;
-        if (nativeWeaponLookupOptimized && settings.IsEnabled(nameof(WeaponLookupAllocation)))
-            ModLog.Info("WeaponLookupAllocation: Sea Power 0.9.0 already avoids the temporary list.");
-        return optimizations
-            .Where(optimization => !nativeWeaponLookupOptimized || optimization is not WeaponLookupAllocation)
-            .Select(optimization => (optimization, settings.IsEnabled(optimization.Id))).ToArray();
+        return optimizations.Select(optimization => (optimization, settings.IsEnabled(optimization.Id))).ToArray();
     }
 }

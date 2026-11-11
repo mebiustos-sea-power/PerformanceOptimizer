@@ -23,13 +23,11 @@ internal sealed class NativeSimulationFixture
     internal sealed class Owner
     {
         public Parameters _obp = new();
-        public Dictionary<string, List<Weapon>> _ammunitionToWeaponSystemsDictionary = new();
         public Formation? Formation { get; set; }
         public Value<int> NumberOfFreeJamChannels { get; } = new();
         public Value<int> NumberOfFreeLaserChannels { get; } = new();
     }
     internal sealed class Parameters { public Collection<Sensor> _sensorSystems = new(); }
-    internal sealed class Weapon { internal readonly int Id; internal Weapon(int id) { Id = id; } }
     internal sealed class Formation
     {
         internal Station? Result;
@@ -59,7 +57,7 @@ internal sealed class NativeSimulationFixture
         var game = typeof(ObjectBase).Assembly;
         void Add(string native, Type managed) => types.Add(game.GetType(native, true)!, managed);
         Add("SeaPower.ObjectBase", typeof(Owner)); Add("SeaPower.ObjectBaseParameters", typeof(Parameters));
-        Add("SeaPower.WeaponSystem", typeof(Weapon)); Add("SeaPower.UnitFormation", typeof(Formation)); Add("SeaPower.Station", typeof(Station));
+        Add("SeaPower.UnitFormation", typeof(Formation)); Add("SeaPower.Station", typeof(Station));
         Add("SeaPower.BaseSystem", typeof(Sensor)); Add("SeaPower.SensorSystem", typeof(Sensor));
         Add("SeaPower.SensorSystemECM", typeof(EcmSensor)); Add("SeaPower.SensorSystemLaserDesignator", typeof(LaserSensor));
         Add("SeaPower.ECM", typeof(Ecm)); Add("SeaPower.ECMParameters", typeof(EcmParameters));
@@ -86,8 +84,6 @@ internal sealed class NativeSimulationFixture
     {
         if (method.DeclaringType == typeof(UnityEngine.Object))
             return typeof(NativeSimulationFixture).GetMethod(method.Name == "op_Equality" ? nameof(Equal) : nameof(Unequal))!;
-        if (method.DeclaringType?.FullName == "SeaPower.Utils" && method.Name == "CopyList")
-            return typeof(NativeSimulationFixture).GetMethod(nameof(Copy))!.MakeGenericMethod(method.GetGenericArguments().Select(Map).ToArray());
         var owner = Map(method.DeclaringType!);
         string name = owner.IsGenericType && owner.GetGenericTypeDefinition() == typeof(Value<>)
             ? method.Name.Replace("_Value", "_ValueData") : method.Name;
@@ -108,7 +104,6 @@ internal sealed class NativeSimulationFixture
 
     public static bool Equal(object? a, object? b) => ReferenceEquals(a, b);
     public static bool Unequal(object? a, object? b) => !ReferenceEquals(a, b);
-    public static List<T> Copy<T>(List<T> source) => new List<T>(source);
 
     internal T Compile<T>(MethodInfo original, Func<IEnumerable<CodeInstruction>, ILGenerator, IEnumerable<CodeInstruction>>? rewrite = null) where T : Delegate
     {

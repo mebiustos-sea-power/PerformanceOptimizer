@@ -3,10 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
-using HarmonyLib;
-using PerformanceOptimizer;
 using PerformanceOptimizer.Optimizations;
-using PerformanceOptimizer.Simulation;
 using static NativeSimulationFixture;
 using static Program;
 
@@ -14,42 +11,8 @@ internal static class SimulationTests
 {
     internal static void Run()
     {
-        WeaponLookup(); FormationLookup(); Channels(); RejectChangedLayouts();
+        FormationLookup(); Channels(); RejectChangedLayouts();
         ScratchTests.Run();
-    }
-
-    private static void WeaponLookup()
-    {
-        var fixture = new NativeSimulationFixture();
-        var lookups = new List<Func<Owner, string, bool, List<Weapon>?>> {
-            fixture.Compile<Func<Owner, string, bool, List<Weapon>?>>(WeaponLookupAllocation.Target)
-        };
-        if (GameAssemblyCompatibility.Current != GameAssemblyCompatibility.SeaPower090)
-            lookups.Add(fixture.Compile<Func<Owner, string, bool, List<Weapon>?>>(WeaponLookupAllocation.Target,
-                (code, _) => WeaponLookupAllocation.Transpile(code)));
-
-        foreach (var lookup in lookups)
-        {
-            var unit = new Owner();
-            var source = new List<Weapon> { new(1), new(2), new(1) };
-            unit._ammunitionToWeaponSystemsDictionary.Add("ammo", source);
-            foreach (bool copy in new[] { false, true })
-            {
-                var result = lookup(unit, "ammo", copy)!;
-                Require(result.SequenceEqual(source) && ReferenceEquals(result, source) == !copy,
-                    "Weapon lookup changed item order, duplicates or copy/alias semantics.");
-                if (copy)
-                {
-                    result.Clear();
-                    Require(source.Count == 3, "A mutable result changed the unit's registered weapons.");
-                }
-                Require(lookup(unit, "missing", copy) == null, "Missing ammo behavior changed.");
-                Throws<ArgumentNullException>(() => lookup(unit, null!, copy));
-            }
-            unit._ammunitionToWeaponSystemsDictionary = null!;
-            Throws<NullReferenceException>(() => lookup(unit, "ammo", false));
-        }
-        Console.WriteLine("PASS weapon lookup IL: order, duplicates, mutable copies, missing entries and exceptions");
     }
 
     private static void FormationLookup()
@@ -125,13 +88,6 @@ internal static class SimulationTests
 
     private static void RejectChangedLayouts()
     {
-        var changed = InstructionReader.Read(WeaponLookupAllocation.Target);
-        if (GameAssemblyCompatibility.Current != GameAssemblyCompatibility.SeaPower090)
-        {
-            changed[0].opcode = OpCodes.Ldnull;
-            changed[0].operand = null;
-        }
-        Throws<InvalidOperationException>(() => WeaponLookupAllocation.Transpile(changed).ToList());
         var ai = InstructionReader.Read(AiContactScratchReuse.Target);
         ai.RemoveAll(i => i.opcode == OpCodes.Newobj && i.operand is ConstructorInfo c && c.DeclaringType!.IsGenericType &&
             c.DeclaringType.GetGenericTypeDefinition() == typeof(HashSet<>));

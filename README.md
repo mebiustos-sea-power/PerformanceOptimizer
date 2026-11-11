@@ -2,14 +2,13 @@
 
 An Anchor Chain mod for Sea Power that reduces redundant work while preserving graphics settings and native simulation timing.
 
-## Simulation allocation optimizations (0.3.0)
+## Simulation allocation optimizations
 
-The simulation optimizations are enabled by default wherever they apply. Each has a setting in the configuration file:
+The simulation optimizations are enabled by default. Each has a setting in the configuration file:
 
 - **SonarScratchReuse** reuses per-sonar temporary builders, a membership set and a dictionary snapshot in the improved sonar model. Native worker-owned arrays, snapshot copies, tasks, completion waits and result collection are retained.
 - **AiContactScratchReuse** reuses the temporary contact-membership set for each AI instance. Contact information is cleared after each decision; no decision result is cached between updates.
 - **FormationStationLookup** uses a single station lookup within each duplicated expression. It does not cache stations across calls or frames.
-- **WeaponLookupAllocation** removes an empty list that is immediately overwritten by the native dictionary lookup on Sea Power 0.8.7. Sea Power 0.9.0 already omits that allocation and uses its native lookup.
 - **SensorChannelEnumeration** avoids boxed enumerators in the native jammer/laser channel totals. The original list order, conditions and reactive-property writes remain; list-version checks retain mutation errors.
 
 Scratch storage is isolated by owner and invocation, including reentrant calls. Lists/sets are cleared on normal return and exceptions; retained capacity is released with the owner or optimization. This trades retained capacity for less repeated managed allocation. Judgment intervals, contact order, formulas, random draws and simulation scheduling are unchanged. The verified game assembly is required, and pre-existing patches to these target methods are rejected with a logged error.
@@ -24,7 +23,7 @@ Version 0.2.0 introduced two image-effect routing changes alongside the ocean op
 - **OpticalEffectRouting** retains the native optical renderer in its original position, but includes it only while a valid image effect is active. A separate driver invokes the original input, late-update and GUI methods, preserving mode changes, transitions and temporal history while the renderer is idle. Internal renderer switches do not invoke semantic enable/disable resets; actual GameObject lifecycle is forwarded when needed.
 - **OceanReadbackDispatch** skips the displacement texture-to-buffer conversion while that buffer has an outstanding request. Native request/collection/copy/clearing order is retained.
 
-The compatibility checks for image-effect routing and simulation optimizations recognize Sea Power 0.8.7-261021 and 0.9.0-261111. They reject other game assemblies and pre-existing patches to the methods they must own. Errors are logged, affected components are restored and only that optimization is removed. Graphics quality, depth/normal requirements, ocean detail, frame caps and simulation scheduling are unchanged. There is no promised GPU/power reduction; results depend on view, resolution and active effects.
+This mod supports Sea Power 0.9.0-261111. The compatibility checks for image-effect routing and simulation optimizations verify the game assembly. They reject other game assemblies and pre-existing patches to the methods they must own. Errors are logged, affected components are restored and only that optimization is removed. Graphics quality, depth/normal requirements, ocean detail, frame caps and simulation scheduling are unchanged. There is no promised GPU/power reduction; results depend on view, resolution and active effects.
 
 ## Installation
 
@@ -34,7 +33,7 @@ The build never deploys files to the game or starts/attaches to a game process. 
 
 ## Configuration
 
-Each applicable optimization can be disabled independently. The settings file is stored outside the installed mod and Workshop folders:
+Each optimization can be disabled independently. The settings file is stored outside the installed mod and Workshop folders:
 
 ```text
 BepInEx/config/mebiustos.performanceoptimizer.ini
@@ -50,15 +49,14 @@ OpticalEffectRouting=true
 SonarScratchReuse=true
 AiContactScratchReuse=true
 FormationStationLookup=true
-WeaponLookupAllocation=true
 SensorChannelEnumeration=true
 ```
 
-Set any item to `false` to disable only that optimization. If the file or an entry is absent, the applicable optimization is enabled. Sea Power 0.9.0 accepts the existing `WeaponLookupAllocation` setting and uses its native lookup regardless of that value. The file is not automatically created or overwritten. Settings are read only at startup to decide which patches to install, so changing them requires a game restart and adds no per-frame configuration checks. Disabling the mod in the game's mod manager still prevents all its optimizations from being installed.
+Set any item to `false` to disable only that optimization. If the file or an entry is absent, the optimization is enabled. The file is not automatically created or overwritten. Settings are read only at startup to decide which patches to install, so changing them requires a game restart and adds no per-frame configuration checks. Disabling the mod in the game's mod manager still prevents all its optimizations from being installed.
 
 If you previously created `optimizations.ini` beside the mod DLL, move it to the new location and rename it to `mebiustos.performanceoptimizer.ini` to retain your settings. If the new file already exists, merge your old values into it. The old file is no longer read; a startup warning identifies the new path when an old file remains. Missing entries in an older file use the enabled default.
 
-Unknown IDs and invalid Boolean values generate startup warnings and retain the existing/default setting. Malformed syntax or duplicate valid settings stop initialization with an error. Each optimization has its own Harmony owner; an installation failure is logged and its patches are rolled back while other optimizations can continue.
+Unknown IDs and invalid Boolean values generate startup warnings and retain the existing/default setting. An older `WeaponLookupAllocation` entry is ignored with this warning. Sea Power 0.9.0 handles weapon lookups without the redundant empty list allocation. Malformed syntax or duplicate valid settings stop initialization with an error. Each optimization has its own Harmony owner; an installation failure is logged and its patches are rolled back while other optimizations can continue.
 
 ## Build and tests
 
@@ -79,7 +77,7 @@ The isolated Mono installation check may print unresolved Unity internal-call di
 
 ## Simulation verification
 
-The original and transformed game IL is compared at managed boundaries for weapon lookup, formation following and sensor-channel totals. Tests cover ordering, duplicates, mutable copies, missing keys, on/off and occupied channels, property writes, and same-count list mutations. Production scratch helpers are exercised with growing/shrinking/empty inputs, independent snapshots, separate owners, nested calls, exceptions and removal during an active invocation. Warmed scratch-list/set updates allocate zero managed bytes in the .NET test host; this is not a measurement of game-wide allocation or GC pauses.
+The original and transformed game IL is compared at managed boundaries for formation following and sensor-channel totals. Tests cover changes in formation assignment, on/off and occupied channels, property writes, and same-count list mutations. Production scratch helpers are exercised with growing/shrinking/empty inputs, independent snapshots, separate owners, nested calls, exceptions and removal during an active invocation. Warmed scratch-list/set updates allocate zero managed bytes in the .NET test host; this is not a measurement of game-wide allocation or GC pauses.
 
 The separate game-Mono process also executes these comparisons and installs the production scratch prefix/finalizer on managed fixtures, including exception recovery and the game's private sonar snapshot type. Preparing detours for full native simulation methods can initialize Unity-dependent globals, which a standalone host cannot supply. Live Unity verification is required in addition to these offline checks.
 

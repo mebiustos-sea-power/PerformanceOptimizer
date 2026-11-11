@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using PerformanceOptimizer;
-using PerformanceOptimizer.Optimizations;
 using static Program;
 
 internal static class SettingsTests
@@ -26,12 +25,16 @@ internal static class SettingsTests
         string legacy = Path.Combine(directory, "optimizations.ini");
         File.WriteAllText(legacy, "[Optimizations]\nOceanReadbackDispatch=false\n");
         var defaults = Plugin.LoadOptimizations(configDirectory);
-        bool nativeWeaponLookupOptimized = GameAssemblyCompatibility.Current == GameAssemblyCompatibility.SeaPower090;
-        Require(defaults.Any(entry => entry.Optimization is WeaponLookupAllocation) == !nativeWeaponLookupOptimized,
-            "The installation plan must skip the weapon lookup patch on builds with the native optimization.");
         Require(defaults.All(entry => entry.Enabled) && !Directory.Exists(configDirectory),
             "Absent shared configuration did not retain enabled defaults or created files.");
         Directory.CreateDirectory(configDirectory);
+        const string previousSettings = "[Optimizations]\nWeaponLookupAllocation=false\nOceanReadbackDispatch=false\n";
+        File.WriteAllText(path, previousSettings);
+        var upgraded = Plugin.LoadOptimizations(configDirectory);
+        Require(upgraded.Select(entry => entry.Optimization.Id).SequenceEqual(defaults.Select(entry => entry.Optimization.Id)) &&
+            upgraded.All(entry => entry.Enabled == (entry.Optimization.Id != "OceanReadbackDispatch")) &&
+            File.ReadAllText(path) == previousSettings,
+            "A retired setting interfered with the active optimization settings.");
         foreach (var selected in defaults)
         {
             string text = "[Optimizations]\n" + selected.Optimization.Id.ToLowerInvariant() + "=false\n";
