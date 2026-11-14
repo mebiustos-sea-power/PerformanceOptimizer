@@ -9,9 +9,6 @@ internal static class NativeRenderContract
 {
     internal static void Validate(params MethodInfo[] methods)
     {
-        // Renderer gating depends on the complete native inactive branch and
-        // lifecycle, not just a method signature. Re-audit these on game updates.
-        GameAssemblyCompatibility.RequireVerified(typeof(FullscreenShaderToggleCycle).Module.ModuleVersionId);
         foreach (MethodInfo method in methods)
         {
             var patches = Harmony.GetPatchInfo(method);

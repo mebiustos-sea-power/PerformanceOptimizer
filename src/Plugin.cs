@@ -32,7 +32,7 @@ public sealed class Plugin : IAnchorChainMod
             ModLog.Info("Configuration: " + settingsPath);
             if (File.Exists(Path.Combine(package, "optimizations.ini")))
                 ModLog.Warning("The legacy optimizations.ini beside the mod DLL is no longer read. Move its settings to " + settingsPath + ".");
-            OptimizationInstaller.Install(LoadOptimizations(configDirectory));
+            OptimizationInstaller.Install(LoadOptimizations(configDirectory), game.ManifestModule.ModuleVersionId);
             Application.quitting += OptimizationInstaller.Shutdown;
         }
         catch (Exception error)
@@ -41,20 +41,23 @@ public sealed class Plugin : IAnchorChainMod
         }
     }
 
-    internal static (IOptimization Optimization, bool Enabled)[] LoadOptimizations(string configDirectory)
+    internal static (string Id, Func<IOptimization> Create, bool RequiresVerifiedBuild, bool Enabled)[] LoadOptimizations(string configDirectory)
     {
-        IOptimization[] optimizations = {
-            new OceanReadbackDispatch(),
-            new PipOutputRouting(),
-            new OpticalEffectRouting(),
-            new SonarScratchReuse(),
-            new AiContactScratchReuse(),
-            new FormationStationLookup(),
-            new SensorChannelEnumeration()
+        // The routing and simulation patches depend on audited game behavior.
+        // Resolve their patch targets only after the installer checks the build.
+        (string Id, Func<IOptimization> Create, bool RequiresVerifiedBuild)[] optimizations = {
+            (nameof(OceanReadbackDispatch), () => new OceanReadbackDispatch(), false),
+            (nameof(PipOutputRouting), () => new PipOutputRouting(), true),
+            (nameof(OpticalEffectRouting), () => new OpticalEffectRouting(), true),
+            (nameof(SonarScratchReuse), () => new SonarScratchReuse(), true),
+            (nameof(AiContactScratchReuse), () => new AiContactScratchReuse(), true),
+            (nameof(FormationStationLookup), () => new FormationStationLookup(), true),
+            (nameof(SensorChannelEnumeration), () => new SensorChannelEnumeration(), true)
         };
         var settings = OptimizationSettings.Load(Path.Combine(configDirectory, OptimizationSettings.FileName),
             optimizations.Select(optimization => optimization.Id));
         foreach (string warning in settings.Warnings) ModLog.Warning(warning);
-        return optimizations.Select(optimization => (optimization, settings.IsEnabled(optimization.Id))).ToArray();
+        return optimizations.Select(optimization => (optimization.Id, optimization.Create,
+            optimization.RequiresVerifiedBuild, settings.IsEnabled(optimization.Id))).ToArray();
     }
 }

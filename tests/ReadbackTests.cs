@@ -1,8 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
+using BepInEx.Logging;
 using HarmonyLib;
 using PerformanceOptimizer;
 using PerformanceOptimizer.Optimizations;
@@ -137,14 +139,32 @@ internal static class ReadbackTests
 
     private static void InstallerIsolation()
     {
-        string[] ids = { "TestFailure", "TestDisabled", "TestGood" };
+        string[] ids = { "TestFailure", "TestDisabled", "TestGood", "TestSkippedA", "TestSkippedB" };
+        var logs = new LogCapture();
+        Logger.Listeners.Add(logs);
         string path = System.IO.Path.GetTempFileName();
         try
         {
             System.IO.File.WriteAllText(path, "[Optimizations]\nTestDisabled=false\n");
             var settings = OptimizationSettings.Load(path, ids);
             var failed = new Probe(ids[0], true); var disabled = new Probe(ids[1], false); var good = new Probe(ids[2], false);
-            OptimizationInstaller.Install(new (IOptimization Optimization, bool Enabled)[] { (failed, settings.IsEnabled(failed.Id)), (disabled, settings.IsEnabled(disabled.Id)), (good, settings.IsEnabled(good.Id)) });
+            var unverified = Guid.Empty;
+            OptimizationInstaller.Install(new (string, Func<IOptimization>, bool, bool)[] {
+                (failed.Id, () => failed, false, settings.IsEnabled(failed.Id)),
+                (disabled.Id, UnexpectedFactory, true, settings.IsEnabled(disabled.Id)),
+                (good.Id, () => good, false, settings.IsEnabled(good.Id)),
+                (ids[3], UnexpectedFactory, true, settings.IsEnabled(ids[3])),
+                (ids[4], UnexpectedFactory, true, settings.IsEnabled(ids[4]))
+            }, unverified);
+            var warnings = logs.Events.Where(e => e.Level == LogLevel.Warning).ToArray();
+            Require(warnings.Length == 1 && warnings[0].Data is string warning &&
+                warning.Contains(unverified.ToString()) && warning.Contains(ids[3]) && warning.Contains(ids[4]) &&
+                !warning.Contains(disabled.Id) && !warning.Contains(good.Id),
+                "Skipped optimizations were not reported together in one warning.");
+            var errors = logs.Events.Where(e => e.Level == LogLevel.Error).Select(e => e.Data.ToString()!).ToArray();
+            Require(errors.Length == 2 && errors.Any(message => message.Contains("Expected installation failure")) &&
+                errors.Any(message => message.Contains("Expected restoration failure")),
+                "Installation and restoration failures must both be logged as errors.");
             Require(failed.Calls == 1 && disabled.Calls == 0 && good.Calls == 1, "Disable/failure isolation stopped other optimizations.");
             Require(failed.Disposals == 1 && disabled.Disposals == 0 && good.Disposals == 0, "Failure cleanup leaked resources or disposed a different optimization.");
             var owners = Harmony.GetPatchInfo(ProbeTarget)!.Owners;
@@ -153,10 +173,24 @@ internal static class ReadbackTests
         }
         finally
         {
+            Logger.Listeners.Remove(logs);
             OptimizationInstaller.Shutdown();
             foreach (string id in ids) new Harmony(ModInfo.Id + "." + id).UnpatchSelf();
             System.IO.File.Delete(path);
         }
+    }
+
+    private static IOptimization UnexpectedFactory() =>
+        throw new InvalidOperationException("A skipped or disabled optimization was created.");
+
+    private sealed class LogCapture : ILogListener
+    {
+        internal List<LogEventArgs> Events { get; } = new();
+        public void LogEvent(object sender, LogEventArgs args)
+        {
+            if (args.Source.SourceName == ModInfo.Name) Events.Add(args);
+        }
+        public void Dispose() { }
     }
 
     private static readonly MethodInfo ProbeTarget = typeof(ReadbackTests).GetMethod(nameof(Target), BindingFlags.Static | BindingFlags.NonPublic)!;
@@ -169,12 +203,16 @@ internal static class ReadbackTests
         internal int Calls;
         internal int Disposals;
         internal Probe(string id, bool fail) { Id = id; this.fail = fail; }
-        public void Dispose() { Disposals++; }
+        public void Dispose()
+        {
+            Disposals++;
+            if (fail) throw new InvalidOperationException("Expected restoration failure.");
+        }
         public void Install(Harmony patches)
         {
             Calls++;
             patches.Patch(ProbeTarget, postfix: new HarmonyMethod(typeof(ReadbackTests), nameof(Postfix)));
-            if (fail) throw new InvalidOperationException("Expected installation failure after patching.");
+            if (fail) throw new NotSupportedException("Expected installation failure after patching.");
         }
     }
 }

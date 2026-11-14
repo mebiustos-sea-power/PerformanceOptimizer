@@ -15,23 +15,44 @@ internal static class OptimizationInstaller
 {
     private static readonly Dictionary<IOptimization, Harmony> installed = new();
 
-    internal static void Install(IEnumerable<(IOptimization Optimization, bool Enabled)> optimizations)
+    internal static void Install(
+        IEnumerable<(string Id, Func<IOptimization> Create, bool RequiresVerifiedBuild, bool Enabled)> optimizations, Guid build)
     {
-        foreach (var entry in optimizations) Install(entry.Optimization, entry.Enabled);
+        bool verified = GameAssemblyCompatibility.IsVerified(build);
+        var skipped = new List<string>();
+        foreach (var entry in optimizations)
+        {
+            if (!entry.Enabled)
+                ModLog.Info(entry.Id + ": disabled in " + OptimizationSettings.FileName + ".");
+            else if (entry.RequiresVerifiedBuild && !verified)
+                skipped.Add(entry.Id);
+            else
+                Install(entry.Id, entry.Create);
+        }
+
+        if (skipped.Count > 0)
+            ModLog.Warning($"Sea Power assembly {build} has not been verified for {string.Join(", ", skipped)}. " +
+                $"These optimizations were skipped. The supported build is {GameAssemblyCompatibility.SupportedBuild}.");
     }
 
-    internal static void Install(IOptimization optimization, bool enabled)
+    private static void Install(string id, Func<IOptimization> create)
     {
-        if (!enabled)
-        { ModLog.Info(optimization.Id + ": disabled in " + OptimizationSettings.FileName + "."); return; }
+        IOptimization? optimization = null;
         try
         {
-            var patches = new Harmony(ModInfo.Id + "." + optimization.Id);
+            optimization = create();
+            var patches = new Harmony(ModInfo.Id + "." + id);
             installed.Add(optimization, patches);
             optimization.Install(patches);
-            if (installed.ContainsKey(optimization)) ModLog.Info(optimization.Id + ": installed.");
+            if (installed.ContainsKey(optimization)) ModLog.Info(id + ": installed.");
         }
-        catch (Exception failure) { Failed(optimization, failure); }
+        catch (Exception failure)
+        {
+            if (optimization == null)
+                ModLog.Error(id + ": could not initialize optimization", failure);
+            else
+                Failed(optimization, failure);
+        }
     }
 
     internal static void Failed(IOptimization optimization, Exception failure)

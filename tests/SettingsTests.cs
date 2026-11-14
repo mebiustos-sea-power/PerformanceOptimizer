@@ -31,25 +31,25 @@ internal static class SettingsTests
         const string previousSettings = "[Optimizations]\nWeaponLookupAllocation=false\nOceanReadbackDispatch=false\n";
         File.WriteAllText(path, previousSettings);
         var upgraded = Plugin.LoadOptimizations(configDirectory);
-        Require(upgraded.Select(entry => entry.Optimization.Id).SequenceEqual(defaults.Select(entry => entry.Optimization.Id)) &&
-            upgraded.All(entry => entry.Enabled == (entry.Optimization.Id != "OceanReadbackDispatch")) &&
+        Require(upgraded.Select(entry => entry.Id).SequenceEqual(defaults.Select(entry => entry.Id)) &&
+            upgraded.All(entry => entry.Enabled == (entry.Id != "OceanReadbackDispatch")) &&
             File.ReadAllText(path) == previousSettings,
             "A retired setting interfered with the active optimization settings.");
         foreach (var selected in defaults)
         {
-            string text = "[Optimizations]\n" + selected.Optimization.Id.ToLowerInvariant() + "=false\n";
+            string text = "[Optimizations]\n" + selected.Id.ToLowerInvariant() + "=false\n";
             File.WriteAllText(path, text);
             var configured = Plugin.LoadOptimizations(configDirectory);
             Require(configured.Length == defaults.Length && configured.All(entry =>
-                entry.Enabled == (entry.Optimization.Id != selected.Optimization.Id)),
-                "A production optimization could not be disabled independently: " + selected.Optimization.Id);
+                entry.Enabled == (entry.Id != selected.Id)),
+                "A production optimization could not be disabled independently: " + selected.Id);
             Require(File.ReadAllText(path) == text && File.ReadAllText(legacy).Contains("OceanReadbackDispatch=false"),
                 "Loading configuration changed the user's shared or legacy settings.");
         }
-        File.WriteAllText(path, "[Optimizations]\n" + string.Join("\n", defaults.Select(entry => entry.Optimization.Id + "=false")));
+        File.WriteAllText(path, "[Optimizations]\n" + string.Join("\n", defaults.Select(entry => entry.Id + "=false")));
         Require(Plugin.LoadOptimizations(configDirectory).All(entry => !entry.Enabled),
             "Disabling every optimization left an item enabled.");
-        File.WriteAllText(path, "[Optimizations]\n" + string.Join("\n", defaults.Select(entry => entry.Optimization.Id + "=true")));
+        File.WriteAllText(path, "[Optimizations]\n" + string.Join("\n", defaults.Select(entry => entry.Id + "=true")));
         Require(Plugin.LoadOptimizations(configDirectory).All(entry => entry.Enabled),
             "Re-enabling every optimization left an item disabled.");
         Console.WriteLine("PASS shared configuration: " + defaults.Length + " independent production switches, omitted defaults, case-insensitive IDs and no file rewrites");

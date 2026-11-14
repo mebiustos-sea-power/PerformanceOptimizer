@@ -1,18 +1,11 @@
 using System;
-using SeaPower;
 
 namespace PerformanceOptimizer;
 
 internal static class GameAssemblyCompatibility
 {
-    private static readonly Guid VerifiedBuild = new("875e9708-6803-45c5-96b4-008c762358eb");
+    private static readonly Guid VerifiedBuild = new("0dc1c9db-9ee8-4834-a6c4-20986512fbf3");
 
-    internal static Guid Current => typeof(ObjectBase).Module.ModuleVersionId;
-
-    internal static void RequireVerified(Guid build)
-    {
-        if (build != VerifiedBuild)
-            throw new NotSupportedException(
-                $"Sea Power assembly {build} has not been verified. The supported build is 0.9.1-261112.");
-    }
+    internal const string SupportedBuild = "0.9.2-261113";
+    internal static bool IsVerified(Guid build) => build == VerifiedBuild;
 }

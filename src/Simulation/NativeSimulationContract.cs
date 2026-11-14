@@ -16,7 +16,6 @@ internal static class NativeSimulationContract
 
     internal static void Validate(params MethodInfo[] methods)
     {
-        GameAssemblyCompatibility.RequireVerified(GameAssemblyCompatibility.Current);
         foreach (var method in methods)
             if (Harmony.GetPatchInfo(method)?.Owners.Any() == true)
                 throw new InvalidOperationException("Another patch already owns the simulation method: " + method);
