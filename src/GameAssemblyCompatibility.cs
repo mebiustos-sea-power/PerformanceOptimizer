@@ -4,8 +4,8 @@ namespace PerformanceOptimizer;
 
 internal static class GameAssemblyCompatibility
 {
-    private static readonly Guid VerifiedBuild = new("0dc1c9db-9ee8-4834-a6c4-20986512fbf3");
+    private static readonly Guid VerifiedBuild = new("f8b0a944-adb6-4c08-bf6c-352196ebb729");
 
-    internal const string SupportedBuild = "0.9.2-261113";
+    internal const string SupportedBuild = "0.9.3-261116";
     internal static bool IsVerified(Guid build) => build == VerifiedBuild;
 }
